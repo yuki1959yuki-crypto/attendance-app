@@ -1,0 +1,23 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('stamp_correction_requests', function (Blueprint $table) {
+            // 申請された複数の休憩時間をJSON形式で保存するカラム
+            $table->json('breaks')->nullable()->after('comment');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('stamp_correction_requests', function (Blueprint $table) {
+            $table->dropColumn('breaks');
+        });
+    }
+};
