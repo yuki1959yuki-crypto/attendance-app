@@ -6,6 +6,11 @@ use Laravel\Fortify\Http\Requests\LoginRequest as FortifyLoginRequest;
 
 class LoginRequest extends FortifyLoginRequest
 {
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, array<mixed>|string>
+     */
     public function rules(): array
     {
         return [
@@ -14,6 +19,11 @@ class LoginRequest extends FortifyLoginRequest
         ];
     }
 
+    /**
+     * Get the error messages for the defined validation rules.
+     *
+     * @return array<string, string>
+     */
     public function messages(): array
     {
         return [

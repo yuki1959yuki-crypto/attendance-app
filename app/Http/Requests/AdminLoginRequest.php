@@ -3,15 +3,25 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class AdminLoginRequest extends FormRequest
 {
+    /**
+     * ユーザーがこのリクエストを行う権限を持っているか判定する
+     */
     public function authorize(): bool
     {
         return true;
     }
 
+    /**
+     * リクエストに適用されるバリデーションルールを取得する
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
     public function rules(): array
     {
         return [
@@ -20,12 +30,14 @@ class AdminLoginRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator)
+    /**
+     * バリデーターインスタンスの設定
+     */
+    public function withValidator(Validator $validator): void
     {
         $validator->after(function ($validator) {
             $user = User::where('email', $this->email)->first();
 
-            // ユーザーが存在し、かつ admin_status が 1（管理者）でない場合
             if ($user && $user->admin_status != 1) {
                 $validator->errors()->add('email', '管理者権限を持つアカウントではありません。');
             }

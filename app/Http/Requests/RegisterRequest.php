@@ -2,15 +2,24 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RegisterRequest extends FormRequest
 {
+    /**
+     * ユーザーがこのリクエストを行う権限を持っているか判定する
+     */
     public function authorize(): bool
     {
         return true;
     }
 
+    /**
+     * リクエストに適用されるバリデーションルールを取得する
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
     public function rules(): array
     {
         return [
@@ -22,6 +31,8 @@ class RegisterRequest extends FormRequest
 
     /**
      * バリデーションエラーのカスタムメッセージ
+     *
+     * @return array<string, string>
      */
     public function messages(): array
     {

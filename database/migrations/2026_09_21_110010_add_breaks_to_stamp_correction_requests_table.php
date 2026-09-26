@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('stamp_correction_requests', function (Blueprint $table) {
-            // 申請された複数の休憩時間をJSON形式で保存するカラム
+
             $table->json('breaks')->nullable()->after('comment');
         });
     }

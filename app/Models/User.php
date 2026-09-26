@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -47,12 +48,11 @@ class User extends Authenticatable
     {
         $today = Carbon::today()->format('Y-m-d');
 
-        // 本日の勤怠レコードを取得
         $attendance = $this->attendanceRecords()
             ->whereDate('date', $today)
             ->first();
 
-        $status = '勤務外'; // 初期値
+        $status = '勤務外';
 
         if ($attendance) {
             if ($attendance->clock_in_time && ! $attendance->clock_out_time) {

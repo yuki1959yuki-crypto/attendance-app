@@ -14,7 +14,6 @@ abstract class TestCase extends BaseTestCase
      */
     protected function tearDown(): void
     {
-        // Carbonで固定した日時をリセットし、実際の現在時刻に戻す
         Carbon::setTestNow();
 
         parent::tearDown();

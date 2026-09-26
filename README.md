@@ -16,8 +16,8 @@
 1. **リポジトリをクローン**
 
    ```bash
-   git clone https://github.com/coachtech-material/ExampleAnswer-mockcase-BookShelf.git
-   cd ExampleAnswer-mockcase-BookShelf
+   git clone https://github.com/yuki1959yuki-crypto/attendance-app.git
+   cd attendance-app
    git checkout basic
    ```
 

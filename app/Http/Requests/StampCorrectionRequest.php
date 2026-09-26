@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StampCorrectionRequest extends FormRequest
@@ -16,6 +17,8 @@ class StampCorrectionRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -24,7 +27,6 @@ class StampCorrectionRequest extends FormRequest
             'new_clock_out' => ['required', 'date_format:H:i', 'after:new_clock_in'],
             'comment' => ['required', 'string', 'max:255'],
 
-            // ▼ 【追加】休憩時間のバリデーション
             'new_break_in' => ['nullable', 'array'],
             'new_break_in.*' => ['nullable', 'date_format:H:i'],
             'new_break_out' => ['nullable', 'array'],
@@ -34,6 +36,8 @@ class StampCorrectionRequest extends FormRequest
 
     /**
      * バリデーションエラーメッセージのカスタマイズ
+     *
+     * @return array<string, string>
      */
     public function messages(): array
     {
@@ -46,7 +50,6 @@ class StampCorrectionRequest extends FormRequest
             'comment.required' => '備考を記入してください。',
             'comment.max' => '備考は255文字以内で入力してください。',
 
-            // ▼ 【追加】休憩エラーメッセージ
             'new_break_in.*.date_format' => '休憩開始時間は「HH:mm」形式で入力してください。',
             'new_break_out.*.date_format' => '休憩終了時間は「HH:mm」形式で入力してください。',
         ];

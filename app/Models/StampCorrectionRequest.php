@@ -17,11 +17,10 @@ class StampCorrectionRequest extends Model
         'clock_in_time',
         'clock_out_time',
         'comment',
-        'breaks', // 【追加】JSON形式の休憩データを保存するため
+        'breaks',
         'status',
     ];
 
-    // ビュー側（AttendanceRecord）に合わせて大文字にする
     public function AttendanceRecord()
     {
         return $this->belongsTo(AttendanceRecord::class);
@@ -81,7 +80,7 @@ class StampCorrectionRequest extends Model
     }
 
     /**
-     * 【修正】Blade側で proposalBreaks が使われた際、breaks(JSON) をループ可能なコレクションに変換して返す
+     * Blade側で proposalBreaks が使われた際、breaks(JSON) をループ可能なコレクションに変換して返す
      */
     public function getProposalBreaksAttribute()
     {
@@ -97,7 +96,6 @@ class StampCorrectionRequest extends Model
             return collect();
         }
 
-        // Blade側で $break->break_in や $break->break_out として参照できるように変換
         return collect($decoded)->map(function ($item) {
             return (object) [
                 'break_in' => $item['break_in_time'] ?? null,

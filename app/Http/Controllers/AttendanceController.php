@@ -7,13 +7,17 @@ use App\Models\BreakRecord;
 use App\Models\StampCorrectionRequest;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class AttendanceController extends Controller
 {
-    // 1. 打刻画面の表示
-    public function index()
+    /**
+     * 打刻画面の表示
+     */
+    public function index(): View
     {
         $user = Auth::user();
         $today = Carbon::today()->format('Y-m-d');
@@ -28,8 +32,10 @@ class AttendanceController extends Controller
         return view('user.attendance-register', compact('user', 'attendance', 'formattedDate', 'formattedTime'));
     }
 
-    // 2. 打刻アクションの処理（出勤・退勤・休憩などの受付）
-    public function store(Request $request)
+    /**
+     * 打刻アクションの処理（出勤・退勤・休憩などの受付）
+     */
+    public function store(Request $request): RedirectResponse
     {
         $user = Auth::user();
         $today = Carbon::today()->format('Y-m-d');
@@ -61,12 +67,10 @@ class AttendanceController extends Controller
 
             case 'break_in':
                 if ($attendance && $attendance->clock_in_time && ! $attendance->clock_out_time) {
-                    // ▼ 【追加】すでに未終了の休憩レコードがないかチェックする
                     $hasActiveBreak = BreakRecord::where('attendance_record_id', $attendance->id)
                         ->whereNull('break_out_time')
                         ->exists();
 
-                    // 休憩中でなければ、新しい休憩を作成する
                     if (! $hasActiveBreak) {
                         BreakRecord::create([
                             'attendance_record_id' => $attendance->id,
@@ -95,18 +99,19 @@ class AttendanceController extends Controller
         return redirect()->route('attendance.index');
     }
 
-    public function list(Request $request)
+    /**
+     * ユーザーの勤怠一覧画面の表示
+     */
+    public function list(Request $request): View
     {
         $user = Auth::user();
 
-        // クエリパラメータから日付を取得（デフォルトは今日）
         $dateInput = $request->input('date', Carbon::today()->format('Y-m-d'));
         $date = Carbon::parse($dateInput);
 
         $startOfMonth = $date->copy()->startOfMonth();
         $endOfMonth = $date->copy()->endOfMonth();
 
-        // 該当月の自分の勤怠データを取得
         $attendances = AttendanceRecord::where('user_id', $user->id)
             ->whereBetween('date', [$startOfMonth, $endOfMonth])
             ->with('breakRecords')
@@ -115,25 +120,22 @@ class AttendanceController extends Controller
                 return Carbon::parse($item->date)->format('Y-m-d');
             });
 
-        // 1日〜月末までの全日付分の配列を生成（データがない日は空欄にするため）
-        $formattedAttendanceRecords = [];
         $period = CarbonPeriod::create($startOfMonth, $endOfMonth);
 
-        foreach ($period as $day) {
+        $formattedAttendanceRecords = collect($period)->map(function ($day) use ($attendances) {
             $dateStr = $day->format('Y-m-d');
             $record = $attendances->get($dateStr);
 
-            $formattedAttendanceRecords[] = [
+            return [
                 'id' => $record ? $record->id : null,
-                'date' => $day->format('m/d'), // または表示形式に合わせて調整
+                'date' => $day->format('m/d'),
                 'clock_in' => $record && $record->clock_in_time ? Carbon::parse($record->clock_in_time)->format('H:i') : '',
                 'clock_out' => $record && $record->clock_out_time ? Carbon::parse($record->clock_out_time)->format('H:i') : '',
                 'total_break_time' => $record ? $record->total_break_time : '',
                 'total_time' => $record ? $record->total_working_time : '',
             ];
-        }
+        })->toArray();
 
-        // 前月・翌月の文字列生成
         $previousMonth = $date->copy()->subMonth()->format('Y-m-d');
         $nextMonth = $date->copy()->addMonth()->format('Y-m-d');
 
@@ -145,17 +147,141 @@ class AttendanceController extends Controller
         ));
     }
 
-    // ==========================================
-    // 4. 勤怠詳細画面の表示 (US008)
-    // ==========================================
-    public function show($id)
+    /**
+     * ログインユーザーの直近6ヶ月の勤怠レポート画面の表示
+     */
+    public function report(): View
     {
         $user = Auth::user();
 
-        // ▼ 【修正】もし管理者の場合は user_id の縛りをなくして任意の勤怠を取得できるようにする
+        $endMonth = Carbon::today()->startOfMonth();
+        $startMonth = $endMonth->copy()->subMonths(5)->startOfMonth();
+
+        $attendanceRecords = AttendanceRecord::where('user_id', $user->id)
+            ->whereBetween('date', [$startMonth->format('Y-m-d'), $endMonth->copy()->endOfMonth()->format('Y-m-d')])
+            ->with('breakRecords')
+            ->get();
+
+        $monthlyTrend = collect(CarbonPeriod::create($startMonth, '1 month', $endMonth))
+            ->map(function ($month) use ($attendanceRecords) {
+                $yearMonthStr = $month->format('Y-m');
+
+                $recordsInMonth = $attendanceRecords->filter(function ($record) use ($yearMonthStr) {
+                    return Carbon::parse($record->date)->format('Y-m') === $yearMonthStr;
+                });
+
+                $workMinutes = 0;
+                $overtimeMinutes = 0;
+
+                foreach ($recordsInMonth as $record) {
+                    if ($record->clock_in_time && $record->clock_out_time) {
+                        $in = Carbon::parse($record->clock_in_time);
+                        $out = Carbon::parse($record->clock_out_time);
+                        $totalMinutes = $in->diffInMinutes($out);
+
+                        $breakMinutes = 0;
+                        foreach ($record->breakRecords as $break) {
+                            if ($break->break_in_time && $break->break_out_time) {
+                                $breakMinutes += Carbon::parse($break->break_in_time)->diffInMinutes(Carbon::parse($break->break_out_time));
+                            }
+                        }
+
+                        $netMinutes = max(0, $totalMinutes - $breakMinutes);
+                        $workMinutes += $netMinutes;
+
+                        if ($netMinutes > 480) {
+                            $overtimeMinutes += ($netMinutes - 480);
+                        }
+                    }
+                }
+
+                return [
+                    'month' => $month->format('Y年n月'),
+                    'work_minutes' => $workMinutes,
+                    'overtime_minutes' => $overtimeMinutes,
+                ];
+            })->values();
+
+        $totalWorkMinutes = $monthlyTrend->sum('work_minutes');
+        $totalOvertimeMinutes = $monthlyTrend->sum('overtime_minutes');
+
+        $totalDays = $attendanceRecords->filter(function ($record) {
+            return ! empty($record->clock_in_time) && ! empty($record->clock_out_time);
+        })->count();
+
+        $avgWorkMinutes = $totalDays > 0 ? round($totalWorkMinutes / $totalDays) : 0;
+
+        $summary = [
+            'total_work_minutes' => $totalWorkMinutes,
+            'total_overtime_minutes' => $totalOvertimeMinutes,
+            'avg_work_minutes' => $avgWorkMinutes,
+        ];
+
+        $currentMonthStr = Carbon::today()->format('Y-m');
+        $currentMonthRecords = $attendanceRecords->filter(function ($record) use ($currentMonthStr) {
+            return Carbon::parse($record->date)->format('Y-m') === $currentMonthStr;
+        });
+
+        $lateCount = 0;
+        $earlyLeaveCount = 0;
+        $longWorkCount = 0;
+
+        foreach ($currentMonthRecords as $record) {
+            if ($record->clock_in_time) {
+                $clockIn = Carbon::parse($record->clock_in_time);
+                if ($clockIn->format('H:i') > '09:00') {
+                    $lateCount++;
+                }
+            }
+
+            if ($record->clock_out_time) {
+                $clockOut = Carbon::parse($record->clock_out_time);
+                if ($clockOut->format('H:i') < '18:00') {
+                    $earlyLeaveCount++;
+                }
+            }
+
+            if ($record->clock_in_time && $record->clock_out_time) {
+                $in = Carbon::parse($record->clock_in_time);
+                $out = Carbon::parse($record->clock_out_time);
+                $totalMinutes = $in->diffInMinutes($out);
+
+                $breakMinutes = 0;
+                foreach ($record->breakRecords as $break) {
+                    if ($break->break_in_time && $break->break_out_time) {
+                        $breakMinutes += Carbon::parse($break->break_in_time)->diffInMinutes(Carbon::parse($break->break_out_time));
+                    }
+                }
+
+                $netWorkingMinutes = max(0, $totalMinutes - $breakMinutes);
+
+                if ($netWorkingMinutes > 600) {
+                    $longWorkCount++;
+                }
+            }
+        }
+
+        $anomalies = [
+            'late_count' => $lateCount,
+            'early_leave_count' => $earlyLeaveCount,
+            'long_work_count' => $longWorkCount,
+        ];
+
+        return view('reports.index', compact('user', 'summary', 'monthlyTrend', 'anomalies'));
+    }
+
+    /**
+     * 勤怠詳細画面の表示
+     *
+     * @param  int|string  $id
+     */
+    public function show($id): View
+    {
+        $user = Auth::user();
+
         $query = AttendanceRecord::with(['breakRecords', 'stampCorrectionRequests']);
 
-        if ($user->admin_status) { // ※お使いの管理者判定カラム（例: admin_status, role 等）に合わせてください
+        if ($user->admin_status) {
             $attendance = $query->findOrFail($id);
         } else {
             $attendance = $query->where('user_id', $user->id)->findOrFail($id);
@@ -175,24 +301,24 @@ class AttendanceController extends Controller
 
         $data = [
             'id' => $attendance->id,
-            // ▼ 見本の配置に合わせて「年」と・「月日」に分割して渡す
-            $attendance->id,
-            'year' => Carbon::parse($attendance->date)->format('Y年'),      // 例: 2026年
-            'date' => Carbon::parse($attendance->date)->format('n月j日'),   // 例: 9月16日
+            'year' => Carbon::parse($attendance->date)->format('Y年'),
+            'date' => Carbon::parse($attendance->date)->format('n月j日'),
             'clock_in' => $attendance->clock_in_time ? Carbon::parse($attendance->clock_in_time)->format('H:i') : '',
             'clock_out' => $attendance->clock_out_time ? Carbon::parse($attendance->clock_out_time)->format('H:i') : '',
             'application' => $pendingApplication,
             'breaks' => $breaks,
-            'comment' => $pendingApplication ? $pendingApplication->comment : '', // 申請中なら理由などを表示
+            'comment' => $pendingApplication ? $pendingApplication->comment : '',
         ];
 
         return view('user.user-detail', compact('data', 'user'));
     }
 
-    // ==========================================
-    // 5. 勤怠修正申請の保存処理 (US008)
-    // ==========================================
-    public function update(\App\Http\Requests\StampCorrectionRequest $request, $id)
+    /**
+     * 勤怠修正申請の保存処理
+     *
+     * @param  int|string  $id
+     */
+    public function update(\App\Http\Requests\StampCorrectionRequest $request, $id): RedirectResponse
     {
         $user = Auth::user();
 
@@ -217,14 +343,12 @@ class AttendanceController extends Controller
             ? $date.' '.$request->input('new_clock_out').':00'
             : null;
 
-        // ▼ 送信された複数の休憩データを配列にまとめる
         $newBreakIns = $request->input('new_break_in', []);
         $newBreakOuts = $request->input('new_break_out', []);
         $breaksData = [];
 
         foreach ($newBreakIns as $index => $breakIn) {
             $breakOut = $newBreakOuts[$index] ?? null;
-            // 開始または終了のどちらかに入力がある場合のみ有効な休憩として保持
             if (! empty($breakIn) || ! empty($breakOut)) {
                 $breaksData[] = [
                     'break_in_time' => $breakIn ? $date.' '.$breakIn.':00' : null,
@@ -233,7 +357,6 @@ class AttendanceController extends Controller
             }
         }
 
-        // 修正申請データ保存（breaksカラムにJSONとして格納）
         StampCorrectionRequest::create([
             'user_id' => $user->id,
             'attendance_record_id' => $attendance->id,
@@ -247,23 +370,19 @@ class AttendanceController extends Controller
         return redirect()->route('attendance.show', $id)->with('success', '修正申請を送信しました。');
     }
 
-    // ==========================================
-    // 6. 申請一覧画面の表示（承認待ち・承認済み）
-    // ==========================================
-    public function correctionList(Request $request)
+    /**
+     * 申請一覧画面の表示（承認待ち・承認済み）
+     */
+    public function correctionList(Request $request): View
     {
         $user = Auth::user();
 
-        // ログインユーザーの修正申請データをすべて取得（リレーションの勤怠情報も含む）
         $requests = StampCorrectionRequest::where('user_id', $user->id)
             ->with(['attendanceRecord'])
             ->latest()
             ->get();
 
-        // Blade側（$formattedApplications）の形式にデータを整形
         $formattedApplications = $requests->map(function ($item) {
-            // ステータスの数値（0: 承認待ち, 1: 承認済み など）を文字列に変換
-            // ※必要に応じてステータスの数値ルールに合わせて調整してください
             $statusText = match ((int) $item->status) {
                 0 => '承認待ち',
                 1 => '承認済み',
@@ -282,18 +401,18 @@ class AttendanceController extends Controller
         return view('user.user-application-list', compact('formattedApplications', 'user'));
     }
 
-    // ==========================================
-    // 7. 申請詳細（/application/{id}）からの遷移処理
-    // ==========================================
-    public function showApplicationDetail($id)
+    /**
+     * 申請詳細からの遷移処理
+     *
+     * @param  int|string  $id
+     */
+    public function showApplicationDetail($id): RedirectResponse
     {
         $user = Auth::user();
 
-        // 該当する修正申請データを取得
         $correctionRequest = StampCorrectionRequest::where('user_id', $user->id)
             ->findOrFail($id);
 
-        // 紐づいている勤怠詳細画面（/attendance/{id}）へリダイレクトする
         return redirect()->route('attendance.show', $correctionRequest->attendance_record_id);
     }
 }

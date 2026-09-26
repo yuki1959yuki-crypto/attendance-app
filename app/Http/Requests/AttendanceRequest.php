@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class AttendanceRequest extends FormRequest
 {
@@ -12,7 +13,6 @@ class AttendanceRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // 管理者などがこのリクエストを行えるよう true に変更します
         return true;
     }
 
@@ -32,6 +32,8 @@ class AttendanceRequest extends FormRequest
 
     /**
      * エラーメッセージのカスタマイズ
+     *
+     * @return array<string, string>
      */
     public function messages(): array
     {
@@ -43,20 +45,17 @@ class AttendanceRequest extends FormRequest
     /**
      * 追加のバリデーションロジック（出退勤や休憩の前後関係チェック）
      */
-    public function withValidator($validator)
+    public function withValidator(Validator $validator): void
     {
         $validator->after(function ($validator) {
             $clockIn = $this->input('new_clock_in');
             $clockOut = $this->input('new_clock_out');
 
-            // 1. 出勤・退勤の前後関係チェック
             if ($clockIn && $clockOut) {
                 if ($clockIn >= $clockOut) {
                     $validator->errors()->add('new_clock_in', '出勤時間もしくは退勤時間が不適切な値です');
                 }
             }
-
-            // 休憩時間のバリデーション（必要に応じてここに追加できます）
         });
     }
 }

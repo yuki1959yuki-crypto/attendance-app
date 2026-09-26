@@ -16,7 +16,6 @@ class AdminAttendanceTest extends TestCase
     /** @test */
     public function admin_can_view_admin_attendance_list()
     {
-        // 管理者権限を持つユーザーを作成（※プロジェクトの管理者判定カラムに合わせて調整）
         $admin = User::factory()->create([
             'admin_status' => 1,
         ]);
@@ -50,25 +49,21 @@ class AdminAttendanceTest extends TestCase
             'clock_in_time' => $today.' 09:00:00',
         ]);
 
-        // 承認待ちの修正申請データを作成
         $correctionRequest = StampCorrectionRequest::create([
             'user_id' => $user->id,
             'attendance_record_id' => $attendance->id,
             'clock_in_time' => $today.' 09:30:00',
             'comment' => '修正テスト用の理由です',
-            'status' => 0, // 承認待ち
+            'status' => 0,
         ]);
 
-        // 管理者が承認処理を実行（POST /admin/stamp_correction_request/approve/{id} など）
         $response = $this->actingAs($admin)->post("/admin/stamp_correction_request/approve/{$correctionRequest->id}");
 
-        // 処理後のリダイレクトやステータスを確認
         $response->assertStatus(302);
 
-        // データベース上でステータスが承認済み（例: 1）に変更されているか確認
         $this->assertDatabaseHas('stamp_correction_requests', [
             'id' => $correctionRequest->id,
-            'status' => 1, // 承認済み
+            'status' => 1,
         ]);
     }
 }

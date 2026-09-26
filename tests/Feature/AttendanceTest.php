@@ -51,14 +51,12 @@ class AttendanceTest extends TestCase
         $user = User::factory()->create();
         $today = Carbon::today()->format('Y-m-d');
 
-        // 事ちに出勤状態を作成しておく
         $attendance = AttendanceRecord::create([
             'user_id' => $user->id,
             'date' => $today,
             'clock_in_time' => Carbon::now()->subHours(2),
         ]);
 
-        // 1. 休憩開始（break_in）
         $response = $this->actingAs($user)->post('/attendance', [
             'action' => 'break_in',
         ]);
@@ -68,12 +66,10 @@ class AttendanceTest extends TestCase
             'attendance_record_id' => $attendance->id,
         ]);
 
-        // 休憩レコードを取得
         $breakRecord = BreakRecord::where('attendance_record_id', $attendance->id)->first();
         $this->assertNotNull($breakRecord->break_in_time);
         $this->assertNull($breakRecord->break_out_time);
 
-        // 2. 休憩終了（break_out）
         $response = $this->actingAs($user)->post('/attendance', [
             'action' => 'break_out',
         ]);
@@ -89,14 +85,12 @@ class AttendanceTest extends TestCase
         $user = User::factory()->create();
         $today = Carbon::today()->format('Y-m-d');
 
-        // 事ちに出勤状態を作成しておく
         $attendance = AttendanceRecord::create([
             'user_id' => $user->id,
             'date' => $today,
             'clock_in_time' => Carbon::now()->subHours(8),
         ]);
 
-        // 退勤（clock_out）
         $response = $this->actingAs($user)->post('/attendance', [
             'action' => 'clock_out',
         ]);
@@ -128,7 +122,7 @@ class AttendanceTest extends TestCase
         $attendance = AttendanceRecord::create([
             'user_id' => $user->id,
             'date' => $today,
-            'clock_in_time' => $today.' 09:00:00', // ← 日付を結合する
+            'clock_in_time' => $today.' 09:00:00',
         ]);
 
         $response = $this->actingAs($user)->get("/attendance/{$attendance->id}");
@@ -147,11 +141,10 @@ class AttendanceTest extends TestCase
         $attendance = AttendanceRecord::create([
             'user_id' => $user->id,
             'date' => $today,
-            'clock_in_time' => $today.' 09:00:00',  // ← 日付を結合する
-            'clock_out_time' => $today.' 18:00:00', // ← 日付を結合する
+            'clock_in_time' => $today.' 09:00:00',
+            'clock_out_time' => $today.' 18:00:00',
         ]);
 
-        // 修正申請の送信（POST /attendance/{id}）
         $response = $this->actingAs($user)->post("/attendance/{$attendance->id}", [
             'new_clock_in' => '09:30',
             'new_clock_out' => '18:30',
@@ -160,12 +153,11 @@ class AttendanceTest extends TestCase
 
         $response->assertRedirect(route('attendance.show', $attendance->id));
 
-        // stamp_correction_requests テーブルにデータが保存されているか確認
         $this->assertDatabaseHas('stamp_correction_requests', [
             'user_id' => $user->id,
             'attendance_record_id' => $attendance->id,
             'comment' => '電車遅延のため修正お願いします',
-            'status' => 0, // 承認待ち
+            'status' => 0,
         ]);
     }
 }

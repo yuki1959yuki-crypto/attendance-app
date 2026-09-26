@@ -46,7 +46,6 @@ class AttendanceSeeder extends Seeder
         foreach ($patterns as $index => $time) {
             $date = $currentMonth->copy()->day($index + 1);
 
-            // ▼ 【追加】今日以降（または今日）のデータはシードで自動生成しないようにする
             if ($date->isToday() || $date->isFuture()) {
                 continue;
             }

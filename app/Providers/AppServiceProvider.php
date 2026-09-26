@@ -13,7 +13,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // ▼ 【追加】FortifyのLoginRequestを自作のRequestに差し替える
         $this->app->bind(FortifyLoginRequest::class, LoginRequest::class);
     }
 
