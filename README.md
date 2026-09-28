@@ -88,16 +88,19 @@
    
    ```bash
    sail npm install
+   ```
 
    # 1. 動作確認（ブラウザ閲覧）を行う場合
+   ```bash
    sail npm run dev
+   ```
    # ※ 開発中はターミナルでこのコマンドを起動したままにしてください
 
    # 2. テストを実行する場合（または静的ビルド）
+   ```bash
    sail npm run build
-   # ※ テスト（sail artisan test）を実行する前に一度ビルドしてください
-   
    ```
+   # ※ テスト（sail artisan test）を実行する前に一度ビルドしてください
 
 8. **アプリケーションへのアクセス**
 
