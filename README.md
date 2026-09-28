@@ -49,13 +49,7 @@
    以下のDockerコマンドを実行して、コンテナ内で `composer install` を実行します。
 
    ```bash
-   docker run --rm \
-       -u "$(id -u):$(id -g)" \
-       -v "$(pwd):/var/www/html" 
-       -w /var/www/html \
-       -e COMPOSER_CACHE_DIR=/tmp/composer_cache \
-       laravelsail/php82-composer:latest \
-       composer install
+   docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html -e COMPOSER_CACHE_DIR=/tmp/composer_cache laravelsail/php82-composer:latest composer install
    ```
 
 4. **Laravel Sailの起動**
