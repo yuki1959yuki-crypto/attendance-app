@@ -18,7 +18,6 @@
    ```bash
    git clone https://github.com/yuki1959yuki-crypto/attendance-app.git
    cd attendance-app
-   git checkout basic
    ```
 
 2. **.envファイルの準備**
